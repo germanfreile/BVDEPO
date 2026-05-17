@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a73e8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Inventario Depósito</title>
+<link rel="manifest" href="manifest.json">
+
+<style>
+  :root {
+    --blue: #1a73e8;
+    --blue-dark: #1557b0;
+    --green: #34a853;
+    --red: #ea4335;
+    --orange: #fbbc04;
+    --gray: #5f6368;
+    --light: #f8f9fa;
+    --border: #dadce0;
+    --shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--light); color: #202124; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header { background: var(--blue); color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+  header h1 { font-size: 1.1rem; font-weight: 600; }
+  .header-icons { display: flex; gap: 8px; }
+  .icon-btn { background: rgba(255,255,255,0.2); border: none; color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; }
+  .icon-btn:active { background: rgba(255,255,255,0.35); }
+
+  /* ── TABS ── */
+  .tabs { display: flex; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 56px; z-index: 99; }
+  .tab { flex: 1; padding: 12px 4px; text-align: center; font-size: 0.8rem; font-weight: 500; color: var(--gray); border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.2s; }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-icon { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; padding: 16px; }
+  .screen.active { display: block; }
+
+  /* ── CARD ── */
+  .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .card-title { font-size: 0.85rem; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+
+  /* ── FORM ── */
+  .field { margin-bottom: 14px; }
+  label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray); margin-bottom: 5px; }
+  input, select { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; color: #202124; background: #fff; outline: none; transition: border-color 0.2s; }
+  input:focus, select:focus { border-color: var(--blue); }
+  input[type="date"] { font-size: 0.95rem; }
+
+  .scan-row { display: flex; gap: 8px; }
+  .scan-row input { flex: 1; }
+  .scan-btn { padding: 13px 14px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: 1.3rem; cursor: pointer; white-space: nowrap; }
+  .scan-btn:active { background: var(--blue-dark); }
+
+  .qty-row { display: flex; align-items: center; gap: 8px; }
+  .qty-row input { flex: 1; text-align: center; font-size: 1.2rem; font-weight: 600; }
+  .qty-btn { width: 46px; height: 46px; border: 1.5px solid var(--border); background: #fff; border-radius: 10px; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--blue); font-weight: 700; flex-shrink: 0; }
+  .qty-btn:active { background: var(--light); }
+
+  /* ── QUICK LOCATIONS ── */
+  .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 20px; font-size: 0.82rem; cursor: pointer; background: #fff; color: #202124; transition: all 0.15s; }
+  .chip:active, .chip.selected { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* ── SUBMIT BTN ── */
+  .btn-primary { width: 100%; padding: 16px; background: var(--blue); color: #fff; border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 600; cursor: pointer; margin-top: 4px; letter-spacing: 0.3px; transition: background 0.2s; }
+  .btn-primary:active { background: var(--blue-dark); }
+  .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-secondary { width: 100%; padding: 13px; background: #fff; color: var(--blue); border: 1.5px solid var(--blue); border-radius: 12px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+  .btn-secondary:active { background: #e8f0fe; }
+
+  /* ── TOAST ── */
+  #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px); background: #303030; color: #fff; padding: 12px 22px; border-radius: 24px; font-size: 0.9rem; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; pointer-events: none; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { background: var(--green); }
+  #toast.error { background: var(--red); }
+  #toast.warn { background: var(--orange); color: #000; }
+
+  /* ── HISTORY LIST ── */
+  .history-item { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border-left: 4px solid var(--blue); }
+  .history-item.pending { border-left-color: var(--orange); }
+  .history-item.error { border-left-color: var(--red); }
+  .hi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+  .hi-code { font-weight: 700; font-size: 1rem; }
+  .hi-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .badge-ok { background: #e6f4ea; color: var(--green); }
+  .badge-pending { background: #fef7e0; color: #b06000; }
+  .badge-error { background: #fce8e6; color: var(--red); }
+  .hi-detail { font-size: 0.82rem; color: var(--gray); }
+  .hi-detail span { margin-right: 10px; }
+
+  /* ── STATS ── */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stat-box { background: #fff; border-radius: 10px; padding: 14px; text-align: center; box-shadow: var(--shadow); }
+  .stat-num { font-size: 1.8rem; font-weight: 700; color: var(--blue); }
+  .stat-label { font-size: 0.78rem; color: var(--gray); margin-top: 2px; }
+
+  /* ── SETUP SCREEN ── */
+  .setup-header { text-align: center; padding: 24px 16px 16px; }
+  .setup-icon { font-size: 4rem; display: block; margin-bottom: 10px; }
+  .setup-header h2 { font-size: 1.3rem; margin-bottom: 6px; }
+  .setup-header p { font-size: 0.88rem; color: var(--gray); line-height: 1.5; }
+  .step { display: flex; gap: 12px; margin-bottom: 14px; }
+  .step-num { width: 28px; height: 28px; background: var(--blue); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; margin-top: 2px; }
+  .step-text { font-size: 0.88rem; line-height: 1.6; }
+  .step-text strong { color: #202124; }
+  .step-text code { background: #f1f3f4; padding: 1px 5px; border-radius: 4px; font-size: 0.82rem; font-family: monospace; }
+  .copy-code { background: #f1f3f4; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.75rem; line-height: 1.5; overflow-x: auto; white-space: pre; margin: 8px 0; color: #333; }
+  .btn-copy { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; margin-bottom: 8px; }
+
+  /* ── SCANNER MODAL ── */
+  #scanner-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+  #scanner-modal.open { display: flex; }
+  #scanner-container { width: 90vw; max-width: 380px; aspect-ratio: 1; position: relative; border-radius: 12px; overflow: hidden; }
+  #scanner-video { width: 100%; height: 100%; object-fit: cover; }
+  .scanner-frame { position: absolute; inset: 0; border: 3px solid var(--blue); border-radius: 12px; }
+  .scanner-line { position: absolute; left: 10%; right: 10%; height: 2px; background: var(--blue); animation: scan 2s linear infinite; }
+  @keyframes scan { 0%,100%{top:10%} 50%{top:85%} }
+  .scanner-hint { color: #fff; margin-top: 18px; font-size: 0.9rem; }
+  .scanner-close { margin-top: 16px; padding: 12px 32px; background: var(--red); color: #fff; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
+
+  /* ── OFFLINE BADGE ── */
+  #offline-bar { display: none; background: var(--orange); color: #000; text-align: center; padding: 6px; font-size: 0.82rem; font-weight: 600; }
+  #offline-bar.show { display: block; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--gray); }
+  .empty-state span { font-size: 3rem; display: block; margin-bottom: 10px; }
+
+  .sync-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .sync-btn { padding: 8px 16px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 0.85rem; cursor: pointer; }
+  .sync-btn:disabled { background: #aaa; }
+</style>
+</head>
+<body>
+
+<div id="offline-bar">⚠️ Sin conexión — los registros se guardarán localmente</div>
+
+<!-- SETUP SCREEN (mostrado solo la primera vez) -->
+<div id="setup-screen" style="display:none; padding:0 16px 24px;">
+  <div class="setup-header">
+    <span class="setup-icon">📦</span>
+    <h2>Configuración inicial</h2>
+    <p>Necesitás conectar la app a una hoja de Google Sheets. Solo se hace una vez.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pasos para configurar</div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Abrí <strong>Google Sheets</strong> y creá una hoja nueva llamada <code>Inventario</code></div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Hacé clic en <strong>Extensiones → Apps Script</strong> en el menú superior</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Borrá el código que hay y pegá este:
+        <div class="copy-code" id="apps-script-code">function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Inventario") || ss.getActiveSheet();
+
+  // Agregar encabezados si la hoja está vacía
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Fecha/Hora","Código","Cantidad","Ubicación","Vencimiento","Notas"]);
+    sheet.getRange(1,1,1,6).setFontWeight("bold").setBackground("#1a73e8").setFontColor("#ffffff");
+    sheet.setFrozenRows(1);
+  }
+
+  var data = JSON.parse(e.postData.contents);
+  sheet.appendRow([
+    data.fecha,
+    data.codigo,
+    data.cantidad,
+    data.ubicacion,
+    data.vencimiento,
+    data.notas || ""
+  ]);
+
+  return ContentService
+    .createTextOutput(JSON.stringify({status:"ok", row: sheet.getLastRow()}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  return ContentService
+    .createTextOutput(JSON.stringify({status:"ok"}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</div>
+        <button class="btn-copy" onclick="copyScript()">📋 Copiar código</button>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">Hacé clic en <strong>Implementar → Nueva implementación</strong>, elegí tipo <strong>Aplicación web</strong>, y en "Quién tiene acceso" seleccioná <strong>Cualquier usuario</strong>. Hacé clic en <strong>Implementar</strong> y copiá la URL que aparece.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-text">Pegá la URL acá abajo:</div>
+    </div>
+
+    <div class="field">
+      <label>URL de tu Apps Script</label>
+      <input type="url" id="setup-url" placeholder="https://script.google.com/macros/s/..." autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>Nombre del depósito (opcional)</label>
+      <input type="text" id="setup-nombre" placeholder="Ej: Depósito Central">
+    </div>
+
+    <button class="btn-primary" onclick="saveConfig()">Guardar y comenzar →</button>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app" style="display:none;">
+  <header>
+    <h1>📦 <span id="header-title">Inventario</span></h1>
+    <div class="header-icons">
+      <button class="icon-btn" onclick="syncPending()" title="Sincronizar">🔄</button>
+      <button class="icon-btn" onclick="showConfig()" title="Configuración">⚙️</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('registro')" id="tab-registro">
+      <span class="tab-icon">➕</span>Registro
+    </div>
+    <div class="tab" onclick="switchTab('historial')" id="tab-historial">
+      <span class="tab-icon">📋</span>Historial
+    </div>
+    <div class="tab" onclick="switchTab('resumen')" id="tab-resumen">
+      <span class="tab-icon">📊</span>Resumen
+    </div>
+  </div>
+
+  <!-- TAB: REGISTRO -->
+  <div class="screen active" id="screen-registro">
+    <div class="card">
+      <div class="card-title">Nuevo registro</div>
+
+      <div class="field">
+        <label>Código de producto</label>
+        <div class="scan-row">
+          <input type="text" id="f-codigo" placeholder="Escaneá o escribí el código" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+          <button class="scan-btn" onclick="openScanner()" title="Escanear código de barras">📷</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Cantidad</label>
+        <div class="qty-row">
+          <button class="qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" id="f-cantidad" value="1" min="0" inputmode="numeric">
+          <button class="qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Ubicación</label>
+        <input type="text" id="f-ubicacion" placeholder="Ej: Estante A3, Góndola 2..." autocomplete="off">
+        <div class="quick-chips" id="ubicaciones-rapidas"></div>
+      </div>
+
+      <div class="field">
+        <label>Fecha de vencimiento</label>
+        <input type="date" id="f-vencimiento">
+      </div>
+
+      <div class="field">
+        <label>Notas (opcional)</label>
+        <input type="text" id="f-notas" placeholder="Observaciones..." autocomplete="off">
+      </div>
+
+      <button class="btn-primary" onclick="submitRegistro()" id="btn-submit">
+        ✅ Guardar registro
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB: HISTORIAL -->
+  <div class="screen" id="screen-historial">
+    <div class="sync-row">
+      <span style="font-size:0.85rem; color:var(--gray);" id="historial-count">— registros hoy</span>
+      <button class="sync-btn" onclick="syncPending()" id="btn-sync">🔄 Sincronizar</button>
+    </div>
+    <div id="historial-list"></div>
+  </div>
+
+  <!-- TAB: RESUMEN -->
+  <div class="screen" id="screen-resumen">
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-label">Registros totales</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-hoy">0</div>
+        <div class="stat-label">Registros hoy</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-pending" style="color:var(--orange);">0</div>
+        <div class="stat-label">Sin sincronizar</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-vencen" style="color:var(--red);">0</div>
+        <div class="stat-label">Vencen en 30 días</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Exportar datos</div>
+      <button class="btn-secondary" onclick="exportCSV()" style="margin-bottom:10px;">📄 Exportar CSV</button>
+      <button class="btn-secondary" onclick="clearHistory()" style="color:var(--red); border-color:var(--red);">🗑️ Borrar historial local</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Ubicaciones frecuentes</div>
+      <div id="ubicaciones-list" style="font-size:0.88rem; color:var(--gray);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCANNER MODAL -->
+<div id="scanner-modal">
+  <div id="scanner-container">
+    <video id="scanner-video" autoplay playsinline muted></video>
+    <div class="scanner-frame"></div>
+    <div class="scanner-line"></div>
+  </div>
+  <p class="scanner-hint">Apuntá la cámara al código de barras</p>
+  <button class="scanner-close" onclick="closeScanner()">✕ Cancelar</button>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  CONFIG & STORAGE
+// ─────────────────────────────────────────
+const DB_KEY = 'inventario_registros';
+const CFG_KEY = 'inventario_config';
+const UBI_KEY = 'inventario_ubicaciones';
+
+function getConfig() {
+  return JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
+}
+function saveConfigData(cfg) {
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+}
+function getRegistros() {
+  return JSON.parse(localStorage.getItem(DB_KEY) || '[]');
+}
+function saveRegistros(r) {
+  localStorage.setItem(DB_KEY, JSON.stringify(r));
+}
+function getUbicaciones() {
+  return JSON.parse(localStorage.getItem(UBI_KEY) || '["Estante A","Estante B","Góndola 1","Depósito","Frío"]');
+}
+function addUbicacion(ubi) {
+  const list = getUbicaciones();
+  if (ubi && !list.includes(ubi)) {
+    list.unshift(ubi);
+    if (list.length > 12) list.pop();
+    localStorage.setItem(UBI_KEY, JSON.stringify(list));
+  }
+}
+
+// ─────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const cfg = getConfig();
+  if (!cfg || !cfg.url) {
+    document.getElementById('setup-screen').style.display = 'block';
+  } else {
+    startApp(cfg);
+  }
+
+  // Offline detection
+  window.addEventListener('online', () => {
+    document.getElementById('offline-bar').classList.remove('show');
+    syncPending();
+  });
+  window.addEventListener('offline', () => {
+    document.getElementById('offline-bar').classList.add('show');
+  });
+  if (!navigator.onLine) {
+    document.getElementById('offline-bar').classList.add('show');
+  }
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+});
+
+function startApp(cfg) {
+  document.getElementById('app').style.display = 'block';
+  if (cfg.nombre) document.getElementById('header-title').textContent = cfg.nombre;
+  renderUbicaciones();
+  renderHistorial();
+  renderResumen();
+  setDefaultDate();
+}
+
+function setDefaultDate() {
+  const today = new Date().toISOString().split('T')[0];
+  // No presetear fecha de vencimiento — forzar que el usuario la ingrese
+}
+
+// ─────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────
+function saveConfig() {
+  const url = document.getElementById('setup-url').value.trim();
+  const nombre = document.getElementById('setup-nombre').value.trim() || 'Inventario';
+  if (!url || !url.startsWith('https://script.google.com')) {
+    showToast('Ingresá una URL válida de Apps Script', 'error');
+    return;
+  }
+  const cfg = { url, nombre };
+  saveConfigData(cfg);
+  document.getElementById('setup-screen').style.display = 'none';
+  startApp(cfg);
+  showToast('¡Configuración guardada!', 'success');
+}
+
+function showConfig() {
+  const cfg = getConfig() || {};
+  const newUrl = prompt('URL del Apps Script:', cfg.url || '');
+  if (newUrl !== null && newUrl.trim()) {
+    cfg.url = newUrl.trim();
+    const newNombre = prompt('Nombre del depósito:', cfg.nombre || 'Inventario');
+    if (newNombre !== null) cfg.nombre = newNombre.trim() || 'Inventario';
+    saveConfigData(cfg);
+    document.getElementById('header-title').textContent = cfg.nombre;
+    showToast('Configuración actualizada', 'success');
+  }
+}
+
+// ─────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('screen-' + tab).classList.add('active');
+  if (tab === 'historial') renderHistorial();
+  if (tab === 'resumen') renderResumen();
+}
+
+// ─────────────────────────────────────────
+//  QUICK LOCATIONS
+// ─────────────────────────────────────────
+function renderUbicaciones() {
+  const list = getUbicaciones();
+  const container = document.getElementById('ubicaciones-rapidas');
+  container.innerHTML = list.map(u =>
+    `<span class="chip" onclick="selectUbi('${u.replace(/'/g,"\\'")}',this)">${u}</span>`
+  ).join('');
+}
+
+function selectUbi(ubi, el) {
+  document.getElementById('f-ubicacion').value = ubi;
+  document.querySelectorAll('#ubicaciones-rapidas .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ─────────────────────────────────────────
+//  QTY
+// ─────────────────────────────────────────
+function changeQty(delta) {
+  const input = document.getElementById('f-cantidad');
+  const val = parseInt(input.value || '0') + delta;
+  input.value = Math.max(0, val);
+}
+
+// ─────────────────────────────────────────
+//  SUBMIT
+// ─────────────────────────────────────────
+async function submitRegistro() {
+  const codigo = document.getElementById('f-codigo').value.trim();
+  const cantidad = document.getElementById('f-cantidad').value.trim();
+  const ubicacion = document.getElementById('f-ubicacion').value.trim();
+  const vencimiento = document.getElementById('f-vencimiento').value;
+  const notas = document.getElementById('f-notas').value.trim();
+
+  if (!codigo) { showToast('Ingresá el código del producto', 'error'); document.getElementById('f-codigo').focus(); return; }
+  if (!cantidad || isNaN(cantidad)) { showToast('Ingresá una cantidad válida', 'error'); return; }
+  if (!ubicacion) { showToast('Ingresá la ubicación', 'error'); document.getElementById('f-ubicacion').focus(); return; }
+
+  const now = new Date();
+  const registro = {
+    id: Date.now(),
+    fecha: formatDateTime(now),
+    codigo: codigo.toUpperCase(),
+    cantidad: parseInt(cantidad),
+    ubicacion,
+    vencimiento: vencimiento ? formatDate(vencimiento) : '',
+    notas,
+    status: 'pending'
+  };
+
+  // Save locally first
+  const registros = getRegistros();
+  registros.unshift(registro);
+  saveRegistros(registros);
+  addUbicacion(ubicacion);
+  renderUbicaciones();
+
+  // Vibrate feedback
+  if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+
+  // Try to sync immediately
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+
+  const synced = await sendToSheets(registro);
+  if (synced) {
+    registro.status = 'ok';
+    showToast('✅ Guardado en Google Sheets', 'success');
+  } else {
+    showToast('⚠️ Guardado localmente — se sincronizará después', 'warn');
+  }
+
+  // Update in storage
+  const updated = getRegistros();
+  const idx = updated.findIndex(r => r.id === registro.id);
+  if (idx !== -1) { updated[idx].status = registro.status; saveRegistros(updated); }
+
+  // Reset form
+  document.getElementById('f-codigo').value = '';
+  document.getElementById('f-cantidad').value = '1';
+  document.getElementById('f-notas').value = '';
+  document.querySelectorAll('#ubicaciones-rapidas .chip').forEach(c => c.classList.remove('selected'));
+
+  btn.disabled = false;
+  btn.textContent = '✅ Guardar registro';
+  document.getElementById('f-codigo').focus();
+}
+
+// ─────────────────────────────────────────
+//  SHEETS API
+// ─────────────────────────────────────────
+async function sendToSheets(registro) {
+  const cfg = getConfig();
+  if (!cfg || !cfg.url) return false;
+  try {
+    const resp = await fetch(cfg.url, {
+      method: 'POST',
+      body: JSON.stringify(registro),
+      headers: { 'Content-Type': 'text/plain' } // Apps Script requiere esto
+    });
+    const data = await resp.json();
+    return data.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+async function syncPending() {
+  const registros = getRegistros();
+  const pending = registros.filter(r => r.status === 'pending' || r.status === 'error');
+  if (pending.length === 0) { showToast('Todo sincronizado ✓', 'success'); return; }
+
+  const btn = document.getElementById('btn-sync');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+
+  let ok = 0, fail = 0;
+  for (const r of pending) {
+    const synced = await sendToSheets(r);
+    r.status = synced ? 'ok' : 'error';
+    if (synced) ok++; else fail++;
+  }
+
+  // Merge back
+  registros.forEach((r, i) => {
+    const p = pending.find(p => p.id === r.id);
+    if (p) registros[i].status = p.status;
+  });
+  saveRegistros(registros);
+  renderHistorial();
+  renderResumen();
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Sincronizar'; }
+  if (fail === 0) showToast(`${ok} registro(s) sincronizado(s) ✓`, 'success');
+  else showToast(`${ok} ok, ${fail} con error`, fail > 0 ? 'warn' : 'success');
+}
+
+// ─────────────────────────────────────────
+//  HISTORIAL
+// ─────────────────────────────────────────
+function renderHistorial() {
+  const registros = getRegistros();
+  const list = document.getElementById('historial-list');
+  const count = document.getElementById('historial-count');
+  const today = new Date().toLocaleDateString('es-AR');
+  const hoy = registros.filter(r => r.fecha.startsWith(today.split('/').reverse().join('-')) || r.fecha.includes(today));
+
+  count.textContent = `${registros.length} registros (${hoy.length} hoy)`;
+
+  if (registros.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span>📋</span>No hay registros aún.<br>Usá la pestaña <strong>Registro</strong> para agregar.</div>`;
+    return;
+  }
+
+  list.innerHTML = registros.slice(0, 100).map(r => {
+    const badgeClass = r.status === 'ok' ? 'badge-ok' : r.status === 'pending' ? 'badge-pending' : 'badge-error';
+    const badgeText = r.status === 'ok' ? '✓ Sincronizado' : r.status === 'pending' ? '⏳ Pendiente' : '✗ Error';
+    return `
+    <div class="history-item ${r.status !== 'ok' ? r.status : ''}">
+      <div class="hi-top">
+        <span class="hi-code">${r.codigo}</span>
+        <span class="hi-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="hi-detail">
+        <span>📦 ${r.cantidad} unid.</span>
+        <span>📍 ${r.ubicacion}</span>
+        ${r.vencimiento ? `<span>📅 Vence: ${r.vencimiento}</span>` : ''}
+      </div>
+      <div class="hi-detail" style="margin-top:3px; font-size:0.78rem; opacity:0.7;">${r.fecha}${r.notas ? ' · ' + r.notas : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+//  RESUMEN
+// ─────────────────────────────────────────
+function renderResumen() {
+  const registros = getRegistros();
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const in30 = new Date(today); in30.setDate(today.getDate() + 30);
+
+  document.getElementById('stat-total').textContent = registros.length;
+  document.getElementById('stat-hoy').textContent = registros.filter(r => r.fecha.startsWith(todayStr)).length;
+  document.getElementById('stat-pending').textContent = registros.filter(r => r.status !== 'ok').length;
+
+  let vencenProx = 0;
+  registros.forEach(r => {
+    if (r.vencimiento) {
+      const parts = r.vencimiento.split('/');
+      if (parts.length === 3) {
+        const d = new Date(parts[2], parts[1] - 1, parts[0]);
+        if (d >= today && d <= in30) vencenProx++;
+      }
+    }
+  });
+  document.getElementById('stat-vencen').textContent = vencenProx;
+
+  // Ubicaciones frecuentes
+  const ubiCount = {};
+  registros.forEach(r => { ubiCount[r.ubicacion] = (ubiCount[r.ubicacion] || 0) + 1; });
+  const sorted = Object.entries(ubiCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  document.getElementById('ubicaciones-list').innerHTML = sorted.length ?
+    sorted.map(([u, n]) => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f3f4;"><span>${u}</span><strong>${n}</strong></div>`).join('') :
+    'Sin datos aún.';
+}
+
+// ─────────────────────────────────────────
+//  EXPORT CSV
+// ─────────────────────────────────────────
+function exportCSV() {
+  const registros = getRegistros();
+  if (registros.length === 0) { showToast('No hay registros para exportar', 'warn'); return; }
+  const header = 'Fecha/Hora,Código,Cantidad,Ubicación,Vencimiento,Notas,Estado\n';
+  const rows = registros.map(r =>
+    [r.fecha, r.codigo, r.cantidad, r.ubicacion, r.vencimiento, r.notas, r.status]
+      .map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  const blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `inventario_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV descargado', 'success');
+}
+
+function clearHistory() {
+  if (!confirm('¿Borrar el historial local? Los datos en Google Sheets no se eliminan.')) return;
+  saveRegistros([]);
+  renderHistorial();
+  renderResumen();
+  showToast('Historial borrado', 'success');
+}
+
+// ─────────────────────────────────────────
+//  BARCODE SCANNER
+// ─────────────────────────────────────────
+let scannerStream = null;
+let barcodeDetector = null;
+let scanInterval = null;
+
+async function openScanner() {
+  if (!('BarcodeDetector' in window) && !('mediaDevices' in navigator)) {
+    showToast('Tu navegador no soporta el escáner', 'error');
+    return;
+  }
+  const modal = document.getElementById('scanner-modal');
+  modal.classList.add('open');
+
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('scanner-video');
+    video.srcObject = scannerStream;
+
+    if ('BarcodeDetector' in window) {
+      barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'qr_code', 'upc_a', 'upc_e', 'itf', 'data_matrix'] });
+      scanInterval = setInterval(async () => {
+        try {
+          const codes = await barcodeDetector.detect(video);
+          if (codes.length > 0) {
+            const code = codes[0].rawValue;
+            if (navigator.vibrate) navigator.vibrate(100);
+            document.getElementById('f-codigo').value = code;
+            closeScanner();
+            showToast('Código escaneado: ' + code, 'success');
+          }
+        } catch {}
+      }, 400);
+    } else {
+      // Fallback: mostrar aviso
+      setTimeout(() => {
+        showToast('Escáner disponible solo en Chrome/Android', 'warn');
+        closeScanner();
+      }, 2000);
+    }
+  } catch (err) {
+    modal.classList.remove('open');
+    showToast('No se pudo acceder a la cámara', 'error');
+  }
+}
+
+function closeScanner() {
+  clearInterval(scanInterval);
+  if (scannerStream) {
+    scannerStream.getTracks().forEach(t => t.stop());
+    scannerStream = null;
+  }
+  document.getElementById('scanner-modal').classList.remove('open');
+  document.getElementById('scanner-video').srcObject = null;
+}
+
+// ─────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────
+function formatDateTime(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function formatDate(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type ? `show ${type}` : 'show';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.classList.remove('show'); }, 3000);
+}
+
+function copyScript() {
+  const code = document.getElementById('apps-script-code').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('Código copiado al portapapeles', 'success');
+  }).catch(() => {
+    showToast('Seleccioná y copiá el código manualmente', 'warn');
+  });
+}
+</script>
+</body>
+</html>
