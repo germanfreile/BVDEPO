@@ -279,7 +279,7 @@ function doGet(e) {
       <div class="field">
         <label>Fecha de vencimiento</label>
         <div class="scan-row">
-          <input type="date" id="f-vencimiento" style="flex:1;">
+          <input type="month" id="f-vencimiento" style="flex:1;" value="2027-01">
           <button class="ocr-btn" id="btn-ocr" onclick="openOCR()" title="Leer fecha con cámara">📸</button>
         </div>
         <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none">
@@ -662,8 +662,8 @@ function renderResumen() {
   registros.forEach(r => {
     if (r.vencimiento) {
       const parts = r.vencimiento.split('/');
-      if (parts.length === 3) {
-        const d = new Date(parts[2], parts[1] - 1, parts[0]);
+      if (parts.length === 2) {
+        const d = new Date(parts[1], parts[0] - 1, 1);
         if (d >= today && d <= in30) vencenProx++;
       }
     }
@@ -799,18 +799,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function extraerFecha(texto) {
   // Patrones más comunes en productos: DD/MM/YYYY, MM/YYYY, DD-MM-YY, etc.
   const patrones = [
-    // DD/MM/YYYY o DD-MM-YYYY
-    { re: /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` },
-    // DD/MM/YY
-    { re: /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})\b/, fn: m => `20${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` },
-    // MM/YYYY (vencimiento sin día)
-    { re: /\b(\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[2]}-${m[1].padStart(2,'0')}-01` },
-    // YYYY-MM-DD
-    { re: /\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/, fn: m => `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}` },
+    // MM/YYYY o MM-YYYY
+    { re: /\b(\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[2]}-${m[1].padStart(2,'0')}` },
+    // DD/MM/YYYY — extraemos solo mes/año
+    { re: /\b\d{1,2}[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[2]}-${m[1].padStart(2,'0')}` },
+    // DD/MM/YY — extraemos solo mes/año
+    { re: /\b\d{1,2}[\/\-\.](\d{1,2})[\/\-\.](\d{2})\b/, fn: m => `20${m[2]}-${m[1].padStart(2,'0')}` },
+    // YYYY-MM o YYYY/MM
+    { re: /\b(\d{4})[\/\-\.](\d{1,2})\b/, fn: m => `${m[1]}-${m[2].padStart(2,'0')}` },
     // MMM/YYYY o MMM YYYY (ENE, FEB, MAR...)
     { re: /\b(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)[\/\-\s](\d{4})\b/i, fn: m => {
         const meses = {ENE:'01',FEB:'02',MAR:'03',ABR:'04',MAY:'05',JUN:'06',JUL:'07',AGO:'08',SEP:'09',OCT:'10',NOV:'11',DIC:'12'};
-        return `${m[2]}-${meses[m[1].toUpperCase()]}-01`;
+        return `${m[2]}-${meses[m[1].toUpperCase()]}`;
       }
     },
   ];
@@ -846,8 +846,8 @@ function formatDateTime(d) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 function formatDate(iso) {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
+  const [y, m] = iso.split('-');
+  return `${m}/${y}`;
 }
 function pad(n) { return String(n).padStart(2, '0'); }
 
