@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Inventario Depósito</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
   :root {
@@ -42,24 +43,27 @@
   .screen.active { display: block; }
 
   /* ── CARD ── */
-  .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
-  .card-title { font-size: 0.85rem; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+  .card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
+  .card-title { font-size: 0.85rem; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
 
   /* ── FORM ── */
-  .field { margin-bottom: 14px; }
-  label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray); margin-bottom: 5px; }
-  input, select { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; color: #202124; background: #fff; outline: none; transition: border-color 0.2s; }
+  .field { margin-bottom: 8px; }
+  label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray); margin-bottom: 3px; }
+  input, select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; color: #202124; background: #fff; outline: none; transition: border-color 0.2s; }
   input:focus, select:focus { border-color: var(--blue); }
   input[type="date"] { font-size: 0.95rem; }
 
   .scan-row { display: flex; gap: 8px; }
   .scan-row input { flex: 1; }
-  .scan-btn { padding: 13px 14px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: 1.3rem; cursor: pointer; white-space: nowrap; }
+  .scan-btn { padding: 10px 12px; background: var(--blue); color: #fff; border: none; border-radius: 10px; font-size: 1.2rem; cursor: pointer; white-space: nowrap; }
   .scan-btn:active { background: var(--blue-dark); }
+  .ocr-btn { padding: 10px 12px; background: var(--green); color: #fff; border: none; border-radius: 10px; font-size: 1.2rem; cursor: pointer; white-space: nowrap; }
+  .ocr-btn:active { opacity: 0.8; }
+  .ocr-btn:disabled { background: #aaa; }
 
   .qty-row { display: flex; align-items: center; gap: 8px; }
   .qty-row input { flex: 1; text-align: center; font-size: 1.2rem; font-weight: 600; }
-  .qty-btn { width: 46px; height: 46px; border: 1.5px solid var(--border); background: #fff; border-radius: 10px; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--blue); font-weight: 700; flex-shrink: 0; }
+  .qty-btn { width: 42px; height: 42px; border: 1.5px solid var(--border); background: #fff; border-radius: 10px; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--blue); font-weight: 700; flex-shrink: 0; }
   .qty-btn:active { background: var(--light); }
 
   /* ── QUICK LOCATIONS ── */
@@ -68,7 +72,7 @@
   .chip:active, .chip.selected { background: var(--blue); color: #fff; border-color: var(--blue); }
 
   /* ── SUBMIT BTN ── */
-  .btn-primary { width: 100%; padding: 16px; background: var(--blue); color: #fff; border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 600; cursor: pointer; margin-top: 4px; letter-spacing: 0.3px; transition: background 0.2s; }
+  .btn-primary { width: 100%; padding: 13px; background: var(--blue); color: #fff; border: none; border-radius: 12px; font-size: 1.05rem; font-weight: 600; cursor: pointer; margin-top: 2px; letter-spacing: 0.3px; transition: background 0.2s; }
   .btn-primary:active { background: var(--blue-dark); }
   .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
   .btn-secondary { width: 100%; padding: 13px; background: #fff; color: var(--blue); border: 1.5px solid var(--blue); border-radius: 12px; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
@@ -265,13 +269,20 @@ function doGet(e) {
 
       <div class="field">
         <label>Ubicación</label>
-        <input type="text" id="f-ubicacion" placeholder="Ej: Estante A3, Góndola 2..." autocomplete="off">
+        <div class="scan-row">
+          <input type="text" id="f-ubicacion" placeholder="Ej: Estante A3, Góndola 2..." autocomplete="off">
+          <button class="scan-btn" onclick="openScanner('ubicacion')" title="Escanear código de ubicación">📷</button>
+        </div>
         <div class="quick-chips" id="ubicaciones-rapidas"></div>
       </div>
 
       <div class="field">
         <label>Fecha de vencimiento</label>
-        <input type="date" id="f-vencimiento">
+        <div class="scan-row">
+          <input type="date" id="f-vencimiento" style="flex:1;">
+          <button class="ocr-btn" id="btn-ocr" onclick="openOCR()" title="Leer fecha con cámara">📸</button>
+        </div>
+        <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none">
       </div>
 
       <div class="field">
@@ -703,9 +714,11 @@ function clearHistory() {
 let scannerStream = null;
 let barcodeDetector = null;
 let scanInterval = null;
+let scanTarget = 'codigo';
 
-async function openScanner() {
-  if (!('BarcodeDetector' in window) && !('mediaDevices' in navigator)) {
+async function openScanner(target = 'codigo') {
+  scanTarget = target;
+  if (!('mediaDevices' in navigator)) {
     showToast('Tu navegador no soporta el escáner', 'error');
     return;
   }
@@ -727,14 +740,13 @@ async function openScanner() {
           if (codes.length > 0) {
             const code = codes[0].rawValue;
             if (navigator.vibrate) navigator.vibrate(100);
-            document.getElementById('f-codigo').value = code;
+            document.getElementById('f-' + scanTarget).value = code;
             closeScanner();
-            showToast('Código escaneado: ' + code, 'success');
+            showToast('Escaneado: ' + code, 'success');
           }
         } catch {}
       }, 400);
     } else {
-      // Fallback: mostrar aviso
       setTimeout(() => {
         showToast('Escáner disponible solo en Chrome/Android', 'warn');
         closeScanner();
@@ -744,6 +756,77 @@ async function openScanner() {
     modal.classList.remove('open');
     showToast('No se pudo acceder a la cámara', 'error');
   }
+}
+
+// ─────────────────────────────────────────
+//  OCR FECHA DE VENCIMIENTO
+// ─────────────────────────────────────────
+function openOCR() {
+  document.getElementById('ocr-input').click();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('ocr-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const btn = document.getElementById('btn-ocr');
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    showToast('Leyendo fecha...', '');
+
+    try {
+      const result = await Tesseract.recognize(file, 'spa+eng', { logger: () => {} });
+      const text = result.data.text;
+      const fecha = extraerFecha(text);
+      if (fecha) {
+        document.getElementById('f-vencimiento').value = fecha;
+        if (navigator.vibrate) navigator.vibrate(100);
+        showToast('Fecha detectada ✓', 'success');
+      } else {
+        showToast('No se detectó fecha — ingresala manualmente', 'warn');
+      }
+    } catch {
+      showToast('Error al procesar la imagen', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '📸';
+    e.target.value = '';
+  });
+});
+
+function extraerFecha(texto) {
+  // Patrones más comunes en productos: DD/MM/YYYY, MM/YYYY, DD-MM-YY, etc.
+  const patrones = [
+    // DD/MM/YYYY o DD-MM-YYYY
+    { re: /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` },
+    // DD/MM/YY
+    { re: /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})\b/, fn: m => `20${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` },
+    // MM/YYYY (vencimiento sin día)
+    { re: /\b(\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[2]}-${m[1].padStart(2,'0')}-01` },
+    // YYYY-MM-DD
+    { re: /\b(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/, fn: m => `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}` },
+    // MMM/YYYY o MMM YYYY (ENE, FEB, MAR...)
+    { re: /\b(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)[\/\-\s](\d{4})\b/i, fn: m => {
+        const meses = {ENE:'01',FEB:'02',MAR:'03',ABR:'04',MAY:'05',JUN:'06',JUL:'07',AGO:'08',SEP:'09',OCT:'10',NOV:'11',DIC:'12'};
+        return `${m[2]}-${meses[m[1].toUpperCase()]}-01`;
+      }
+    },
+  ];
+
+  for (const { re, fn } of patrones) {
+    const m = texto.match(re);
+    if (m) {
+      try {
+        const iso = fn(m);
+        // Validar que es una fecha razonable (2020-2035)
+        const y = parseInt(iso.slice(0,4));
+        if (y >= 2020 && y <= 2035) return iso;
+      } catch {}
+    }
+  }
+  return null;
 }
 
 function closeScanner() {
