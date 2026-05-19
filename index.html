@@ -60,6 +60,9 @@
   .ocr-btn { padding: 10px 12px; background: var(--green); color: #fff; border: none; border-radius: 10px; font-size: 1.2rem; cursor: pointer; white-space: nowrap; }
   .ocr-btn:active { opacity: 0.8; }
   .ocr-btn:disabled { background: #aaa; }
+  .label-btn { width: 100%; padding: 13px; background: #e8f5e9; color: #1b5e20; border: 2px dashed var(--green); border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .label-btn:active { background: #c8e6c9; }
+  .label-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
   .qty-row { display: flex; align-items: center; gap: 8px; }
   .qty-row input { flex: 1; text-align: center; font-size: 1.2rem; font-weight: 600; }
@@ -250,12 +253,22 @@ function doGet(e) {
     <div class="card">
       <div class="card-title">Nuevo registro</div>
 
+      <button class="label-btn" id="btn-label" onclick="leerEtiqueta()">
+        📷 Foto de etiqueta — leer todo automático
+      </button>
+      <input type="file" id="label-input" accept="image/*" capture="environment" style="display:none">
+
       <div class="field">
         <label>Código de producto</label>
         <div class="scan-row">
           <input type="text" id="f-codigo" placeholder="Escaneá o escribí el código" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
-          <button class="scan-btn" onclick="openScanner()" title="Escanear código de barras">📷</button>
+          <button class="scan-btn" onclick="openScanner('codigo')" title="Escanear código de barras">📷</button>
         </div>
+      </div>
+
+      <div class="field">
+        <label>Descripción</label>
+        <input type="text" id="f-descripcion" placeholder="Nombre del producto..." autocomplete="off">
       </div>
 
       <div class="field">
@@ -278,11 +291,7 @@ function doGet(e) {
 
       <div class="field">
         <label>Fecha de vencimiento</label>
-        <div class="scan-row">
-          <input type="month" id="f-vencimiento" style="flex:1;" value="2027-01">
-          <button class="ocr-btn" id="btn-ocr" onclick="openOCR()" title="Leer fecha con cámara">📸</button>
-        </div>
-        <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none">
+        <input type="month" id="f-vencimiento" value="2027-01">
       </div>
 
       <div class="field">
@@ -501,6 +510,7 @@ function changeQty(delta) {
 // ─────────────────────────────────────────
 async function submitRegistro() {
   const codigo = document.getElementById('f-codigo').value.trim();
+  const descripcion = document.getElementById('f-descripcion').value.trim();
   const cantidad = document.getElementById('f-cantidad').value.trim();
   const ubicacion = document.getElementById('f-ubicacion').value.trim();
   const vencimiento = document.getElementById('f-vencimiento').value;
@@ -515,6 +525,7 @@ async function submitRegistro() {
     id: Date.now(),
     fecha: formatDateTime(now),
     codigo: codigo.toUpperCase(),
+    descripcion,
     cantidad: parseInt(cantidad),
     ubicacion,
     vencimiento: vencimiento ? formatDate(vencimiento) : '',
@@ -552,6 +563,7 @@ async function submitRegistro() {
 
   // Reset form
   document.getElementById('f-codigo').value = '';
+  document.getElementById('f-descripcion').value = '';
   document.getElementById('f-cantidad').value = '1';
   document.getElementById('f-notas').value = '';
   document.querySelectorAll('#ubicaciones-rapidas .chip').forEach(c => c.classList.remove('selected'));
@@ -635,10 +647,11 @@ function renderHistorial() {
         <span class="hi-code">${r.codigo}</span>
         <span class="hi-badge ${badgeClass}">${badgeText}</span>
       </div>
+      ${r.descripcion ? `<div style="font-size:0.88rem;margin-bottom:3px;">${r.descripcion}</div>` : ''}
       <div class="hi-detail">
         <span>📦 ${r.cantidad} unid.</span>
         <span>📍 ${r.ubicacion}</span>
-        ${r.vencimiento ? `<span>📅 Vence: ${r.vencimiento}</span>` : ''}
+        ${r.vencimiento ? `<span>📅 ${r.vencimiento}</span>` : ''}
       </div>
       <div class="hi-detail" style="margin-top:3px; font-size:0.78rem; opacity:0.7;">${r.fecha}${r.notas ? ' · ' + r.notas : ''}</div>
     </div>`;
@@ -685,9 +698,9 @@ function renderResumen() {
 function exportCSV() {
   const registros = getRegistros();
   if (registros.length === 0) { showToast('No hay registros para exportar', 'warn'); return; }
-  const header = 'Fecha/Hora,Código,Cantidad,Ubicación,Vencimiento,Notas,Estado\n';
+  const header = 'Fecha/Hora,Código,Descripción,Cantidad,Ubicación,Vencimiento,Notas,Estado\n';
   const rows = registros.map(r =>
-    [r.fecha, r.codigo, r.cantidad, r.ubicacion, r.vencimiento, r.notas, r.status]
+    [r.fecha, r.codigo, r.descripcion, r.cantidad, r.ubicacion, r.vencimiento, r.notas, r.status]
       .map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')
   ).join('\n');
   const blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8' });
@@ -759,74 +772,113 @@ async function openScanner(target = 'codigo') {
 }
 
 // ─────────────────────────────────────────
-//  OCR FECHA DE VENCIMIENTO
+//  LEER ETIQUETA COMPLETA (OCR)
 // ─────────────────────────────────────────
-function openOCR() {
-  document.getElementById('ocr-input').click();
+function leerEtiqueta() {
+  document.getElementById('label-input').click();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('ocr-input').addEventListener('change', async (e) => {
+  document.getElementById('label-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const btn = document.getElementById('btn-ocr');
+    const btn = document.getElementById('btn-label');
     btn.disabled = true;
-    btn.textContent = '⏳';
-    showToast('Leyendo fecha...', '');
+    btn.textContent = '⏳ Leyendo etiqueta...';
+    showToast('Procesando imagen...', '');
 
     try {
       const result = await Tesseract.recognize(file, 'spa+eng', { logger: () => {} });
-      const text = result.data.text;
-      const fecha = extraerFecha(text);
-      if (fecha) {
-        document.getElementById('f-vencimiento').value = fecha;
+      const texto = result.data.text;
+      const datos = parseLabelOCR(texto);
+
+      let encontrados = [];
+      if (datos.codigo) {
+        document.getElementById('f-codigo').value = datos.codigo;
+        encontrados.push('código');
+      }
+      if (datos.descripcion) {
+        document.getElementById('f-descripcion').value = datos.descripcion;
+        encontrados.push('descripción');
+      }
+      if (datos.vencimiento) {
+        document.getElementById('f-vencimiento').value = datos.vencimiento;
+        encontrados.push('vencimiento');
+      }
+
+      if (encontrados.length > 0) {
         if (navigator.vibrate) navigator.vibrate(100);
-        showToast('Fecha detectada ✓', 'success');
+        showToast('Leído: ' + encontrados.join(', ') + ' ✓', 'success');
       } else {
-        showToast('No se detectó fecha — ingresala manualmente', 'warn');
+        showToast('No se detectaron datos — revisá el enfoque', 'warn');
       }
     } catch {
       showToast('Error al procesar la imagen', 'error');
     }
 
     btn.disabled = false;
-    btn.textContent = '📸';
+    btn.innerHTML = '📷 Foto de etiqueta — leer todo automático';
     e.target.value = '';
   });
 });
 
-function extraerFecha(texto) {
-  // Patrones más comunes en productos: DD/MM/YYYY, MM/YYYY, DD-MM-YY, etc.
-  const patrones = [
-    // MM/YYYY o MM-YYYY
-    { re: /\b(\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[2]}-${m[1].padStart(2,'0')}` },
-    // DD/MM/YYYY — extraemos solo mes/año
-    { re: /\b\d{1,2}[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/, fn: m => `${m[2]}-${m[1].padStart(2,'0')}` },
-    // DD/MM/YY — extraemos solo mes/año
-    { re: /\b\d{1,2}[\/\-\.](\d{1,2})[\/\-\.](\d{2})\b/, fn: m => `20${m[2]}-${m[1].padStart(2,'0')}` },
-    // YYYY-MM o YYYY/MM
-    { re: /\b(\d{4})[\/\-\.](\d{1,2})\b/, fn: m => `${m[1]}-${m[2].padStart(2,'0')}` },
-    // MMM/YYYY o MMM YYYY (ENE, FEB, MAR...)
-    { re: /\b(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)[\/\-\s](\d{4})\b/i, fn: m => {
-        const meses = {ENE:'01',FEB:'02',MAR:'03',ABR:'04',MAY:'05',JUN:'06',JUL:'07',AGO:'08',SEP:'09',OCT:'10',NOV:'11',DIC:'12'};
-        return `${m[2]}-${meses[m[1].toUpperCase()]}`;
-      }
-    },
-  ];
+function parseLabelOCR(texto) {
+  const resultado = {};
+  const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-  for (const { re, fn } of patrones) {
-    const m = texto.match(re);
-    if (m) {
-      try {
-        const iso = fn(m);
-        // Validar que es una fecha razonable (2020-2035)
-        const y = parseInt(iso.slice(0,4));
-        if (y >= 2020 && y <= 2035) return iso;
-      } catch {}
+  // ── VENCIMIENTO: línea con "L DD/MM/YY" ──
+  // Formato real de las cajas: "L 07/04/27 ..." o "L 23/01/27 ..."
+  const matchL = texto.match(/L\s+(\d{1,2})[\/\.](\d{2})[\/\.](\d{2,4})/i);
+  if (matchL) {
+    const mes = matchL[2].padStart(2, '0');
+    const anio = matchL[3].length === 2 ? '20' + matchL[3] : matchL[3];
+    const y = parseInt(anio);
+    if (y >= 2024 && y <= 2035) resultado.vencimiento = `${anio}-${mes}`;
+  }
+
+  // ── CÓDIGO: número de 4-6 dígitos solo en una línea (cerca de "CODIGO") ──
+  // En las etiquetas el código aparece como número aislado bajo la palabra CODIGO
+  for (const linea of lineas) {
+    const soloNum = linea.replace(/[^0-9]/g, '');
+    if (soloNum.length >= 4 && soloNum.length <= 6 && soloNum === linea.replace(/\s/g, '')) {
+      // Verificar que no sea parte de la fecha o del código de barras (13 dígitos)
+      if (soloNum.length <= 6) {
+        resultado.codigo = soloNum;
+        break;
+      }
     }
   }
-  return null;
+  // Fallback: buscar "CODIGO" y tomar el número más cercano
+  if (!resultado.codigo) {
+    const idxCodigo = lineas.findIndex(l => /c[o0]dig[o0]/i.test(l));
+    if (idxCodigo !== -1) {
+      for (let i = idxCodigo - 2; i <= idxCodigo + 2; i++) {
+        if (i < 0 || i >= lineas.length) continue;
+        const m = lineas[i].match(/\b(\d{4,6})\b/);
+        if (m) { resultado.codigo = m[1]; break; }
+      }
+    }
+  }
+
+  // ── DESCRIPCIÓN: línea con nombre de producto ──
+  // Patrón: línea en mayúsculas que contiene NxN (unidades) y NO empieza con L seguido de fecha
+  for (const linea of lineas) {
+    if (linea.length < 5) continue;
+    if (/^L\s+\d/i.test(linea)) continue;           // es línea de lote/fecha
+    if (/^\d{4,}$/.test(linea.replace(/\s/,''))) continue; // es solo número
+    if (/c[o0]dig[o0]/i.test(linea)) continue;       // es la etiqueta "CODIGO"
+    if (/\d+\s*[xX]\s*\d+/.test(linea) || /[A-Z]{3,}/.test(linea)) {
+      // Es una línea descriptiva (tiene formato NxN o palabras en mayúsculas)
+      const limpia = linea.replace(/\s+/g, ' ').trim();
+      if (limpia.length >= 5) {
+        resultado.descripcion = limpia;
+        break;
+      }
+    }
+  }
+
+  return resultado;
 }
 
 function closeScanner() {
